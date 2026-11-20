@@ -261,7 +261,7 @@ function VisitCard({ v, problems, words, onOpenProblem, onEdit, onDelete }) {
 }
 
 // ── one project ────────────────────────────────────────────────
-function ProjectPage({ id, client, user, can, params, setParams, go, people, onError, notify, onBack }) {
+function ProjectPage({ id, client, user, can, params, setParams, go, people, onError, notify, onBack, version }) {
   const [data, setData] = useState(null)
   const [freeUnits, setFreeUnits] = useState([])
   const [form, setForm] = useState(null)
@@ -273,7 +273,7 @@ function ProjectPage({ id, client, user, can, params, setParams, go, people, onE
   const manage = can('projects.manage')
 
   const load = useCallback(() => client.get(`/projects/${id}`).then(setData, onError), [client, id, onError])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, version])
   useEffect(() => { if (manage && can('production.view')) client.get('/units', { project: 'none' }).then((r) => setFreeUnits(r.units), () => {}) }, [client, manage, can, data?.units?.length])
   // Opening a project from search: go to the item.
   useEffect(() => {
@@ -565,7 +565,7 @@ export default function Projects({ client, user, can, params, setParams, go, onE
   }, [q]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (params.id) {
-    return <ProjectPage key={params.id} id={params.id} client={client} user={user} can={can} params={params} setParams={(p) => setParams({ ...p })} go={go} people={people} onError={onError} notify={notify}
+    return <ProjectPage key={params.id} id={params.id} client={client} user={user} can={can} params={params} setParams={(p) => setParams({ ...p })} go={go} people={people} onError={onError} notify={notify} version={version}
       onBack={() => { setParams({ q: params.backq || undefined }); load() }} />
   }
 

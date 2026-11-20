@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Avatar, Icon, STATUS, STATUS_ORDER, StatusPill, fmtDateTime, timeAgo } from './ui'
 
-export default function Detail({ id, client, onError, onUpdated, onRemoved, onClose, onOpen, toast }) {
+export default function Detail({ id, client, onError, onUpdated, onRemoved, onClose, onOpen, toast, version }) {
   const [doc, setDoc] = useState(null)
   const [related, setRelated] = useState([])
   const [note, setNote] = useState('')
@@ -21,7 +21,7 @@ export default function Detail({ id, client, onError, onUpdated, onRemoved, onCl
       }
     }).catch((err) => { if (live) onError(err) })
     return () => { live = false }
-  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, version]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const patch = async (body, message) => {
     setSaving(true)

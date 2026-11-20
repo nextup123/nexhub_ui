@@ -69,13 +69,13 @@ function NewUnit({ client, templates, onClose, onDone, onError }) {
   )
 }
 
-function UnitDetail({ id, client, user, can, go, people, onBack, onError, notify, onChanged }) {
+function UnitDetail({ id, client, user, can, go, people, onBack, onError, notify, onChanged, version }) {
   const [u, setU] = useState(null)
   const [note, setNote] = useState('')
   const [adding, setAdding] = useState(null)
   const [blockNote, setBlockNote] = useState(null)
   const manage = can('production.manage')
-  useEffect(() => { client.get(`/units/${id}`).then((r) => setU(r.unit), onError) }, [client, id, onError])
+  useEffect(() => { client.get(`/units/${id}`).then((r) => setU(r.unit), onError) }, [client, id, onError, version])
 
   const patchStage = async (s, body, msg) => {
     try { const r = await client.patch(`/units/${id}/stages/${s.key}`, body); setU((x) => ({ ...r.unit, project: x?.project })); onChanged(); if (msg) notify(msg) } catch (err) { onError(err) }
@@ -244,7 +244,7 @@ export default function Production({ client, user, can, params, setParams, go, o
   }), [units, params.model, mine, q, user._id])
 
   if (params.id) {
-    return <UnitDetail id={params.id} client={client} user={user} can={can} go={go} people={people} onError={onError} notify={notify} onChanged={load} onBack={() => setParams({ ...params, id: undefined })} />
+    return <UnitDetail id={params.id} version={version} client={client} user={user} can={can} go={go} people={people} onError={onError} notify={notify} onChanged={load} onBack={() => setParams({ ...params, id: undefined })} />
   }
   const s = summary
   const boardPhases = PHASES.filter(([p]) => p !== 'installed')

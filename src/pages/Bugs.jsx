@@ -8,10 +8,10 @@ const CAT = { crash: 'Crash', wrong_result: 'Wrong result', drive_communication:
 const Sev = ({ s }) => <span className={`pill tone-${SEV[s]?.[1] || 'muted'}`}><i />{SEV[s]?.[0] || s}</span>
 const St = ({ s }) => <span className={`pill tone-${ST_TONE[s] || 'muted'}`}><i />{ST[s] || s}</span>
 
-function BugDetail({ number, client, can, onError, notify, onChanged, onClose }) {
+function BugDetail({ number, client, can, onError, notify, onChanged, onClose, version }) {
   const [bug, setBug] = useState(null)
   const [text, setText] = useState('')
-  useEffect(() => { client.get(`/bugs/${number}`).then((r) => setBug(r.bug), onError) }, [client, number, onError])
+  useEffect(() => { client.get(`/bugs/${number}`).then((r) => setBug(r.bug), onError) }, [client, number, onError, version])
   const patch = async (body, msg) => { try { const r = await client.patch(`/bugs/${number}`, body); setBug(r.bug); onChanged(); if (msg) notify(msg) } catch (err) { onError(err) } }
   const comment = async (e) => {
     e.preventDefault()
@@ -111,7 +111,7 @@ export default function Bugs({ client, can, params, setParams, onError, notify, 
       </section>
       <section className="detail-pane">
         {params.n
-          ? <BugDetail key={params.n} number={params.n} client={client} can={can} onError={onError} notify={notify} onChanged={() => { load(); refreshBadges() }} onClose={() => set({ n: undefined })} />
+          ? <BugDetail key={params.n} version={version} number={params.n} client={client} can={can} onError={onError} notify={notify} onChanged={() => { load(); refreshBadges() }} onClose={() => set({ n: undefined })} />
           : <div className="empty detail-empty"><Icon.bug /><b>Pick a bug report to read it</b><span className="muted">{can('bugs.triage') ? 'You can change status, priority and who fixes it.' : 'You can read reports and comment.'}</span></div>}
       </section>
     </div>

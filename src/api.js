@@ -4,15 +4,26 @@
 const STORE = 'nx-hub-session'
 
 // Where the hub (the API on Render) is. The dashboard runs on your own computer, so the address
-// comes from VITE_HUB_URL in .env.local, or the one last used on the sign-in screen.
+// comes from VITE_HUB_URL in .env or .env.local, or the one last used on the sign-in screen.
+// Changing VITE_HUB_URL (and restarting) wins over an address remembered from before.
 const HUB_KEY = 'nx-hub-url'
+const HUB_FROM_KEY = 'nx-hub-url-env'
+// Forgiving about what is pasted: quotes, a trailing slash or /api/v1, or no https://.
+export function cleanHubUrl(u) {
+  const v = String(u || '').trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '').replace(/\/api\/v1$/, '').replace(/\/+$/, '')
+  if (!v || /^https?:\/\//i.test(v)) return v
+  return (/^(localhost|127\.|192\.168\.|10\.)/.test(v) ? 'http://' : 'https://') + v
+}
+const FROM_BUILD = cleanHubUrl(import.meta.env.VITE_HUB_URL)
 export function defaultHubUrl() {
-  try { const saved = localStorage.getItem(HUB_KEY); if (saved) return saved } catch { /* private mode */ }
-  const fromBuild = (import.meta.env.VITE_HUB_URL || '').trim().replace(/\/$/, '')
-  return fromBuild || 'https://nexhub-x2s6.onrender.com/'
+  try {
+    const saved = localStorage.getItem(HUB_KEY)
+    if (saved && (localStorage.getItem(HUB_FROM_KEY) || '') === FROM_BUILD) return saved
+  } catch { /* private mode */ }
+  return FROM_BUILD || 'http://localhost:4060'
 }
 export function rememberHubUrl(url) {
-  try { localStorage.setItem(HUB_KEY, url) } catch { /* private mode */ }
+  try { localStorage.setItem(HUB_KEY, cleanHubUrl(url)); localStorage.setItem(HUB_FROM_KEY, FROM_BUILD) } catch { /* private mode */ }
 }
 
 export function loadSession() {
@@ -101,4 +112,51 @@ export function createClient({ hub, token }) {
     exportCsv: (filters) => c.download('/contact-submissions/export.csv', filters, `nextup-enquiries-${new Date().toISOString().slice(0, 10)}.csv`),
   }
   return c
+}
+
+/**
+ * Live updates from the hub (GET /api/v1/stream, server-sent events). Read with fetch so the token
+ * stays in the Authorization header. Reconnects by itself (Render may restart or wake the server).
+ * onEvent(name, data): 'change' (something changed: reload), 'notify' (a new enquiry or bug report).
+ * onState('live' | 'connecting' | 'signed-out'). Returns a function that stops it.
+ */
+export function openStream({ hub, token, onEvent, onState }) {
+  let stopped = false
+  let ctrl = null
+  let wait = 1000
+  async function run() {
+    while (!stopped) {
+      onState('connecting')
+      ctrl = new AbortController()
+      try {
+        const res = await fetch(`${hub.replace(/\/$/, '')}/api/v1/stream`, { headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' }, signal: ctrl.signal })
+        if (res.status === 401) { onState('signed-out'); return }
+        if (!res.ok || !res.body) throw new Error(`stream ${res.status}`)
+        const reader = res.body.getReader()
+        const dec = new TextDecoder()
+        let buf = ''
+        for (;;) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buf += dec.decode(value, { stream: true })
+          let i
+          while ((i = buf.indexOf('\n\n')) >= 0) {
+            const block = buf.slice(0, i)
+            buf = buf.slice(i + 2)
+            const name = (block.match(/^event: (.*)$/m) || [])[1]
+            const data = (block.match(/^data: (.*)$/m) || [])[1]
+            if (!name) continue
+            if (name === 'hello') { wait = 1000; onState('live'); continue }
+            try { onEvent(name, data ? JSON.parse(data) : {}) } catch { /* a bad event is skipped */ }
+          }
+        }
+      } catch { /* network gone, server asleep or restarting: try again below */ }
+      if (stopped) return
+      onState('connecting')
+      await new Promise((r) => setTimeout(r, wait))
+      wait = Math.min(wait * 2, 30000)
+    }
+  }
+  run()
+  return () => { stopped = true; if (ctrl) ctrl.abort() }
 }

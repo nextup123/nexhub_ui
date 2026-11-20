@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createClient, loadSession, saveSession, clearSession, ApiError } from './api'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createClient, loadSession, saveSession, clearSession, openStream, ApiError } from './api'
 import { Avatar, Icon, Logo, RoleBadge, setTimeZone } from './ui'
 import Login, { ChangePassword } from './Login'
 import Home from './pages/Home'
@@ -43,6 +43,8 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const [badges, setBadges] = useState(null)
   const [version, setVersion] = useState(0)
+  const [live, setLive] = useState('connecting')
+  const [alerts, setAlerts] = useState([])
 
   // Only a new server or a new sign-in makes a new client. (Refreshing the person's details must not,
   // or every refresh would trigger another one.)
@@ -91,6 +93,40 @@ export default function App() {
     }, onError)
   }, [client]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live updates: the hub says when something changed, and the page on screen reloads by itself.
+  // Several changes close together make one reload; a hidden tab reloads when it is shown again.
+  const goRef = useRef(null)
+  useEffect(() => {
+    if (!hub || !token || session?.user?.mustChangePassword) return undefined
+    let timer = null
+    let pending = false
+    const reload = () => { pending = false; setVersion((v) => v + 1) }
+    const onVisible = () => { if (!document.hidden && pending) reload() }
+    document.addEventListener('visibilitychange', onVisible)
+    const stop = openStream({
+      hub, token,
+      onState: (s) => { if (s === 'signed-out') signOut('You were signed out. Please sign in again.'); else setLive(s) },
+      onEvent: (name, data) => {
+        if (name === 'change') {
+          clearTimeout(timer)
+          timer = setTimeout(() => { if (document.hidden) pending = true; else reload() }, 700)
+        } else if (name === 'notify') {
+          const a = { ...data, key: `${data.kind}-${data.id}-${Date.now()}` }
+          setAlerts((list) => [a, ...list].slice(0, 4))
+          setTimeout(() => setAlerts((list) => list.filter((x) => x.key !== a.key)), 20000)
+          // A desktop notification too, if allowed (Settings → Alerts), when this tab is not in front.
+          try {
+            if ('Notification' in window && Notification.permission === 'granted' && (document.hidden || !document.hasFocus())) {
+              const n = new Notification(data.title, { body: data.body, tag: a.key })
+              n.onclick = () => { window.focus(); goRef.current?.(data); n.close() }
+            }
+          } catch { /* not supported here */ }
+        }
+      },
+    })
+    return () => { stop(); clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible) }
+  }, [hub, token, session?.user?.mustChangePassword]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!toast) return undefined
     const t = setTimeout(() => setToast(null), 4500)
@@ -114,6 +150,12 @@ export default function App() {
     window.history.replaceState(null, '', `#/${view}${q ? `?${q}` : ''}`)
     setRoute({ view, params })
   }, [])
+
+  goRef.current = (a) => {
+    setAlerts((list) => list.filter((x) => x.id !== a.id))
+    if (a.kind === 'enquiry') go('enquiries', { tab: 'inbox', id: a.id })
+    else if (a.kind === 'bug') go('bugs', { n: a.id })
+  }
 
   if (!session) {
     return <Login theme={theme} toggleTheme={toggleTheme} notice={toast} onSignedIn={(s) => { saveSession(s); setSession(s); go('home') }} />
@@ -151,7 +193,8 @@ export default function App() {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="brand"><Logo /><div><b>Nextup</b><span className="mono">Company hub</span></div></div>
+        <div className="brand"><Logo /><div><b>Nextup</b><span className="mono">Company hub</span></div>
+          <span className={`live-dot ${live}`} title={live === 'live' ? 'Live: changes show by themselves' : 'Connecting to the hub for live updates…'} /></div>
         <nav>
           {nav.map((g) => (
             <div key={g.group || 'top'} className="nav-group">
@@ -182,6 +225,19 @@ export default function App() {
       </main>
 
       {toast && <div className={`toast tone-${toast.tone}`} role="status">{toast.text}</div>}
+      {alerts.length > 0 && (
+        <div className="alerts" role="log" aria-live="polite">
+          {alerts.map((a) => (
+            <div key={a.key} className={`alert alert-${a.kind}`}>
+              <button className="alert-open" onClick={() => goRef.current(a)}>
+                {a.kind === 'bug' ? <Icon.bug /> : <Icon.inbox />}
+                <span><b>{a.title}</b>{a.body && <small>{a.body}</small>}</span>
+              </button>
+              <button className="icon-btn" aria-label="Dismiss" onClick={() => setAlerts((list) => list.filter((x) => x.key !== a.key))}><Icon.close /></button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

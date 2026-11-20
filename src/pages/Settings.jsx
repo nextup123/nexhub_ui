@@ -1,5 +1,60 @@
-import { useState } from 'react'
-import { Avatar, Icon, RoleBadge } from '../ui'
+import { useEffect, useState } from 'react'
+import { Avatar, Icon, RoleBadge, isTop } from '../ui'
+
+// New website enquiries and bug reports: pop-ups here, desktop notifications, and (founders) Telegram.
+function Alerts({ client, user, can, onError, notify }) {
+  const supported = typeof window !== 'undefined' && 'Notification' in window
+  const secure = typeof window !== 'undefined' && window.isSecureContext
+  const [perm, setPerm] = useState(supported ? Notification.permission : 'unsupported')
+  const [tg, setTg] = useState(null)
+  const [chats, setChats] = useState(null)
+  const top = isTop(user)
+  useEffect(() => { if (top) client.get('/notifications/telegram').then(setTg, () => {}) }, [client, top])
+  const what = [can('enquiries.view') && 'new website enquiries', can('bugs.view') && 'new bug reports'].filter(Boolean)
+  const ask = async () => { try { setPerm(await Notification.requestPermission()) } catch { setPerm('denied') } }
+  const test = async () => { try { await client.post('/notifications/telegram/test'); notify('Sent. Check Telegram on your phone.') } catch (err) { onError(err) } }
+  const find = async () => { try { setChats((await client.get('/notifications/telegram/chats')).chats) } catch (err) { onError(err) } }
+  if (!what.length && !top) return null
+  return (
+    <section className="card">
+      <header className="card-h"><h3>Alerts</h3></header>
+      <div className="alerts-set">
+        <p>{what.length ? <>While the dashboard is open you get a pop-up for {what.join(' and ')}, and every page updates by itself.</> : 'Your role gets no alerts.'}</p>
+        {what.length > 0 && (
+          <div className="row-between">
+            <span><b>Desktop notifications</b><br /><span className="muted small">
+              {!supported ? 'This browser does not support them.'
+                : !secure ? 'Browsers allow them only on http://localhost, not on a network address like this one.'
+                  : perm === 'granted' ? 'On. They show even when this tab is in the background.'
+                    : perm === 'denied' ? 'Blocked. Allow notifications for this site in the browser’s site settings.'
+                      : 'Off.'}</span></span>
+            {supported && secure && perm === 'default' && <button className="btn primary sm" onClick={ask}>Turn on</button>}
+          </div>
+        )}
+        {top && (
+          <div className="row-between">
+            <span><b>Telegram (phone)</b><br /><span className="muted small">
+              {!tg ? '…' : tg.configured ? `On: alerts go to ${tg.chats} chat${tg.chats === 1 ? '' : 's'}, even when the dashboard is closed.`
+                : tg.botToken ? 'Bot token set. Now add TELEGRAM_CHAT_ID on Render: press Start in your bot, then Find my chat id.'
+                  : 'Off. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID on Render (the hub’s README shows how).'}</span></span>
+            <span className="btn-row">
+              {tg?.botToken && <button className="btn sm" onClick={find}>Find my chat id</button>}
+              {tg?.configured && <button className="btn primary sm" onClick={test}>Send a test</button>}
+            </span>
+          </div>
+        )}
+        {chats && (
+          <div className="chat-ids">
+            {chats.length === 0
+              ? <p className="muted small">No chats yet. Open your bot in Telegram, press Start (or send it any message), then try again.</p>
+              : chats.map((c) => <div key={c.id}><code>{c.id}</code> <span className="muted small">{c.name || c.type}</span></div>)}
+            {chats.length > 0 && <p className="muted small">Put this number in Render → Environment as TELEGRAM_CHAT_ID (several: separate them with commas), then save.</p>}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
 
 // What each permission means, in plain words, so people can see what their role allows.
 const WORDS = {
@@ -77,6 +132,7 @@ export default function Settings({ client, user, can, onError, notify }) {
           </form>
         </section>
       </div>
+      <Alerts client={client} user={user} can={can} onError={onError} notify={notify} />
       <section className="card">
         <header className="card-h"><h3>What your role can do</h3><RoleBadge role={user.role} /></header>
         <ul className="perm-list">

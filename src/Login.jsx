@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { defaultHubUrl, publicCall, rememberHubUrl } from './api'
+import { cleanHubUrl, defaultHubUrl, publicCall, rememberHubUrl } from './api'
 import { Icon, Logo, setTimeZone } from './ui'
 
 function Art() {
@@ -30,7 +30,7 @@ export default function Login({ onSignedIn, theme, toggleTheme, notice }) {
   useEffect(() => {
     let stop = false
     let timer
-    const server = hub.trim().replace(/\/$/, '')
+    const server = cleanHubUrl(hub)
     const check = (n) => {
       publicCall(server, 'GET', '/auth/status').then((s) => {
         if (stop) return
@@ -50,7 +50,7 @@ export default function Login({ onSignedIn, theme, toggleTheme, notice }) {
     e.preventDefault()
     setBusy(true)
     setError('')
-    const server = hub.trim().replace(/\/$/, '')
+    const server = cleanHubUrl(hub)
     try {
       const r = mode === 'setup'
         ? await publicCall(server, 'POST', '/auth/setup', { setupKey: f.setupKey, name: f.name, email: f.email, password: f.password })
@@ -86,7 +86,7 @@ export default function Login({ onSignedIn, theme, toggleTheme, notice }) {
         <label><span className="mono">Email</span><input type="email" value={f.email} onChange={set('email')} required autoComplete="username" autoFocus={mode === 'signin'} /></label>
         <label><span className="mono">Password {mode === 'setup' && <small>(at least 8 characters)</small>}</span><input type="password" value={f.password} onChange={set('password')} required minLength={mode === 'setup' ? 8 : undefined} autoComplete={mode === 'setup' ? 'new-password' : 'current-password'} /></label>
         {mode === 'signin' && <label className="check"><input type="checkbox" checked={f.remember} onChange={set('remember')} /><span>Keep me signed in on this computer (30 days)</span></label>}
-        {reach === 'down' && !error && <div className="form-error" role="alert">Can’t reach the hub at {hub.replace(/^https?:\/\//, '')}. Check the server address below. On Render’s free plan the hub sleeps when nobody uses it and takes up to a minute to wake; this screen keeps trying.</div>}
+        {reach === 'down' && !error && <div className="form-error" role="alert">Can’t reach the hub at {hub.replace(/^https?:\/\//, '')}. Check the server address below{/localhost|127\.0\.0\.1/.test(hub) ? ' (if your hub is on Render, click it and paste the Render address)' : ''}. On Render’s free plan the hub sleeps when nobody uses it and takes up to a minute to wake; this screen keeps trying.</div>}
         {error && <div className="form-error" role="alert">{error}</div>}
         <button className="btn primary" disabled={busy}>{busy ? 'Please wait…' : mode === 'setup' ? 'Create founder account' : 'Sign in'}<Icon.arrow /></button>
         <div className="fine">
@@ -122,7 +122,7 @@ export function ChangePassword({ client, user, onDone, onSignOut, theme, toggleT
         <label><span className="mono">Temporary password</span><input type="password" value={f.current} onChange={(e) => setF({ ...f, current: e.target.value })} required autoComplete="current-password" autoFocus /></label>
         <label><span className="mono">New password <small>(at least 8 characters)</small></span><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required minLength={8} autoComplete="new-password" /></label>
         <label><span className="mono">New password again</span><input type="password" value={f.again} onChange={(e) => setF({ ...f, again: e.target.value })} required autoComplete="new-password" /></label>
-        {reach === 'down' && !error && <div className="form-error" role="alert">Can’t reach the hub at {hub.replace(/^https?:\/\//, '')}. Check the server address below. On Render’s free plan the hub sleeps when nobody uses it and takes up to a minute to wake; this screen keeps trying.</div>}
+        {reach === 'down' && !error && <div className="form-error" role="alert">Can’t reach the hub at {hub.replace(/^https?:\/\//, '')}. Check the server address below{/localhost|127\.0\.0\.1/.test(hub) ? ' (if your hub is on Render, click it and paste the Render address)' : ''}. On Render’s free plan the hub sleeps when nobody uses it and takes up to a minute to wake; this screen keeps trying.</div>}
         {error && <div className="form-error" role="alert">{error}</div>}
         <button className="btn primary" disabled={busy}>Save and continue<Icon.arrow /></button>
         <button type="button" className="link-btn" onClick={onSignOut}>Sign out</button>

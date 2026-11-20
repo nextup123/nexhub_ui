@@ -24,8 +24,12 @@ VITE_HUB_URL=https://<your-service>.onrender.com
 It opens on http://localhost:5174. Sign in with your hub account. The first time, with no accounts yet,
 it shows **Set up the hub**: paste `SETUP_KEY` from Render → Environment to create the founder account.
 
+`.env` works too. The file is read when `npm run dev` starts, so stop it (Ctrl+C) and start it again
+after changing the address.
+
 The server address is also shown under the **Sign in** button. Click it to change it (for example to
-`http://localhost:4060` for a test hub); the last address that worked is remembered on this computer.
+`http://localhost:4060` for a test hub); the last address that worked is remembered on this computer
+until `VITE_HUB_URL` is changed.
 
 **Render's free plan** puts the hub to sleep after about 15 minutes without use. The first visit then
 takes up to a minute; the sign-in screen says it can't reach the hub and keeps trying until it wakes.
@@ -64,6 +68,12 @@ is `nextup-demo`:
 - **Log a site visit**: the date, who went, what was done, and each problem found that day with how it
   was solved. **Log a problem** for anything found between visits; **Write the solution** when it is fixed.
 - Leads and founders create projects, change the team and put robots from the build list on a project.
+
+## Live updates and alerts
+
+Pages update by themselves when anyone changes something (the dot next to the logo is green while connected).
+New website enquiries and bug reports pop up for the roles that may see them; **Settings → Alerts** turns on
+desktop notifications and, for founders, shows the Telegram set-up (chat id finder and a test).
 
 ## Super user
 

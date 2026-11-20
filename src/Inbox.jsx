@@ -142,7 +142,7 @@ export default function Inbox({ client, params, go, version, onError, onChanged,
 
       <section className="detail-pane">
         {params.id
-          ? <Detail key={params.id} id={params.id} client={client} onError={onError} onUpdated={updated} onRemoved={removed} toast={toast}
+          ? <Detail key={params.id} version={version} id={params.id} client={client} onError={onError} onUpdated={updated} onRemoved={removed} toast={toast}
               onClose={() => set({ id: undefined, page: params.page })} onOpen={(id) => set({ id })} />
           : <div className="empty detail-empty"><Icon.mail /><b>Pick an enquiry to read it</b><span className="muted">Use <kbd>j</kbd> and <kbd>k</kbd> to move through the list.</span></div>}
       </section>
