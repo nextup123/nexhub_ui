@@ -1,6 +1,8 @@
 // Talks to the release hub. After sign-in the session (server address, token, the person and
 // what their role allows) is kept for this browser tab, or on this computer with "Remember me".
 
+import { MOBILE, saveFile } from './native'
+
 const STORE = 'nx-hub-session'
 
 // Where the hub (the API on Render) is. The dashboard runs on your own computer, so the address
@@ -16,6 +18,8 @@ export function cleanHubUrl(u) {
 }
 const FROM_BUILD = cleanHubUrl(import.meta.env.VITE_HUB_URL)
 export function defaultHubUrl() {
+  // The phone app always uses the address it was built with; it is never typed or shown.
+  if (MOBILE) return FROM_BUILD
   try {
     const saved = localStorage.getItem(HUB_KEY)
     if (saved && (localStorage.getItem(HUB_FROM_KEY) || '') === FROM_BUILD) return saved
@@ -23,13 +27,17 @@ export function defaultHubUrl() {
   return FROM_BUILD || 'http://localhost:4060'
 }
 export function rememberHubUrl(url) {
+  if (MOBILE) return
   try { localStorage.setItem(HUB_KEY, cleanHubUrl(url)); localStorage.setItem(HUB_FROM_KEY, FROM_BUILD) } catch { /* private mode */ }
 }
 
 export function loadSession() {
   try {
     const raw = sessionStorage.getItem(STORE) || localStorage.getItem(STORE)
-    return raw ? JSON.parse(raw) : null
+    const s = raw ? JSON.parse(raw) : null
+    // A new app version may point at a new address: a session from another server is dropped.
+    if (s && MOBILE && s.hub !== FROM_BUILD) return null
+    return s
   } catch { return null }
 }
 export function saveSession(s) {
@@ -85,20 +93,55 @@ export function createClient({ hub, token }) {
     if (!res.ok) throw new ApiError(data.error || `The server answered ${res.status}`, res.status, data)
     return data
   }
+  // Answers are kept in memory, so opening a page you have seen shows it at once. An answer older
+  // than FRESH_MS (or marked stale by a live "change" from the hub) is shown at once too, and fetched
+  // again in the background; if it changed, onChange listeners hear about it and the page redraws.
+  // Any change you make (post, patch, put, delete) empties the store, so you always see your own edits.
+  const FRESH_MS = 60000
+  const cache = new Map() // key -> { data, at, stale }
+  const inflight = new Map() // key -> promise
+  const listeners = new Set()
+  let gen = 0
+  const fetchInto = (key) => {
+    if (inflight.has(key)) return inflight.get(key)
+    const g = gen
+    const p = call('GET', key).then((data) => {
+      if (g === gen) {
+        const before = cache.get(key)
+        cache.set(key, { data, at: Date.now(), stale: false })
+        if (before && JSON.stringify(before.data) !== JSON.stringify(data)) listeners.forEach((fn) => fn(key))
+      }
+      return data
+    }).finally(() => inflight.delete(key))
+    inflight.set(key, p)
+    return p
+  }
+  const get = (path, query) => {
+    const key = path + qs(query)
+    const hit = cache.get(key)
+    if (!hit) return fetchInto(key)
+    if (hit.stale || Date.now() - hit.at > FRESH_MS) fetchInto(key).catch(() => {})
+    return Promise.resolve(hit.data)
+  }
+  const write = (method) => (path, body) => { gen += 1; cache.clear(); return call(method, path, body) }
   const c = {
-    get: (path, query) => call('GET', path + qs(query)),
-    post: (path, body) => call('POST', path, body || {}),
-    patch: (path, body) => call('PATCH', path, body),
-    put: (path, body) => call('PUT', path, body),
-    del: (path) => call('DELETE', path),
+    get,
+    post: (path, body) => write('POST')(path, body || {}),
+    patch: write('PATCH'),
+    put: write('PUT'),
+    del: (path) => write('DELETE')(path),
+    /** Load these into the store now (the start-up screen does this). */
+    prefetch: (keys) => Promise.allSettled(keys.map((k) => (cache.has(k) ? Promise.resolve() : fetchInto(k)))),
+    /** Something changed on the hub: what is shown stays, and is fetched again in the background. */
+    markStale: () => { cache.forEach((v) => { v.stale = true }) },
+    /** Forget everything (the Refresh button). */
+    clear: () => { gen += 1; cache.clear() },
+    onChange: (fn) => { listeners.add(fn); return () => listeners.delete(fn) },
+    keys: () => [...cache.keys()],
     async download(path, query, filename) {
       const res = await fetch(base + path + qs(query), { headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) throw new ApiError('Download failed', res.status)
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(await res.blob())
-      a.download = filename
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+      await saveFile(filename, await res.blob())
     },
   }
   // Website enquiries (used by Overview, Inbox and Detail).

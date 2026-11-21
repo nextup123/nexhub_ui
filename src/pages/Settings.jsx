@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Avatar, Icon, RoleBadge, isTop } from '../ui'
+import { IN_APP } from '../native'
 
 // New website enquiries and bug reports: pop-ups here, desktop notifications, and (founders) Telegram.
 function Alerts({ client, user, can, onError, notify }) {
@@ -22,8 +23,10 @@ function Alerts({ client, user, can, onError, notify }) {
         <p>{what.length ? <>While the dashboard is open you get a pop-up for {what.join(' and ')}, and every page updates by itself.</> : 'Your role gets no alerts.'}</p>
         {what.length > 0 && (
           <div className="row-between">
-            <span><b>Desktop notifications</b><br /><span className="muted small">
-              {!supported ? 'This browser does not support them.'
+            <span><b>{IN_APP ? 'Phone notifications' : 'Desktop notifications'}</b><br /><span className="muted small">
+              {IN_APP ? (perm === 'granted' ? 'On. They show while the app is open or was used a moment ago. For alerts at any time, use Telegram.'
+                : perm === 'denied' ? 'Blocked. Allow notifications for Nextup Hub in your phone’s Settings → Apps.' : 'Off.')
+              : !supported ? 'This browser does not support them.'
                 : !secure ? 'Browsers allow them only on http://localhost, not on a network address like this one.'
                   : perm === 'granted' ? 'On. They show even when this tab is in the background.'
                     : perm === 'denied' ? 'Blocked. Allow notifications for this site in the browser’s site settings.'

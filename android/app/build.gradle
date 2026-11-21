@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The signing key (see ANDROID.md). Keep the same key for every version you hand out:
+// phones only accept an update signed with the key the app was first installed with.
+def keyProps = new Properties()
+def keyFile = rootProject.file('keystore.properties')
+if (keyFile.exists()) keyFile.withInputStream { keyProps.load(it) }
+
+android {
+    namespace 'com.nextuprobotics.hub'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.nextuprobotics.hub'
+        minSdk 24
+        targetSdk 34
+        // Raise both for every new APK you hand out (versionCode must go up: 2, 3, 4…).
+        versionCode 2
+        versionName '1.1.0'
+    }
+
+    signingConfigs {
+        release {
+            if (keyFile.exists()) {
+                storeFile rootProject.file(keyProps['storeFile'])
+                storePassword keyProps['storePassword']
+                keyAlias keyProps['keyAlias']
+                keyPassword keyProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keyFile.exists() ? signingConfigs.release : null
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+// The screens come from the dashboard: run `npm run android` in the folder above first.
+tasks.register('checkWebBuilt') {
+    doLast {
+        if (!file('src/main/assets/www/index.html').exists()) {
+            throw new GradleException('The app screens are missing. In the dashboard folder run: npm run android')
+        }
+    }
+}
+preBuild.dependsOn checkWebBuilt

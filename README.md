@@ -34,6 +34,11 @@ until `VITE_HUB_URL` is changed.
 **Render's free plan** puts the hub to sleep after about 15 minutes without use. The first visit then
 takes up to a minute; the sign-in screen says it can't reach the hub and keeps trying until it wakes.
 
+## Android app
+
+The same screens as a phone app you can hand out as an APK, with the hub address built in and hidden.
+See **ANDROID.md**.
+
 ## Without the Vite dev server
 
 ```bash
@@ -58,9 +63,18 @@ is `nextup-demo`:
 | `anil@nextup.demo`, `neha@nextup.demo`, `rohit@nextup.demo` | Lead (Production, Software, Sales) |
 | `ravi@nextup.demo`, `imran@nextup.demo`, `pooja@nextup.demo`, `arjun@nextup.demo` | Employee |
 
-## Projects
+## Clients and projects
 
-- **Projects** in the menu lists every project with its robots, open problems and last site visit.
+- **Clients**: every company, with its projects, the robots on them (and the software each runs), the
+  conveyors, SPMs and other equipment, and the people to talk to. Each client page has its own search.
+- **Projects** in the menu lists every project grouped by client (or **All cards**), with its robots,
+  equipment, open problems and last site visit. A new project picks its client, or types a new one.
+- A project page shows its **robots** (with software version; update it with the ↻ button, or add a robot
+  that was already on site before the hub) and its **equipment** (conveyor, SPM, gripper, vision…).
+- When logging a problem, give the **error codes** (E131, AL-21), the part, the robot or equipment and the
+  software version. Codes typed in the text are offered as chips. A **Seen before** box shows solved
+  problems like it from every project, with their solution, while you type.
+- Search finds error codes in any spelling: `e-131` finds `E131` and `E 131`.
 - The big search box looks through every project at once: problems, causes, solutions, site-visit reports,
   notes, customers and robot serials. Solved problems come first, with their solution shown.
 - A project page has **Overview** (robots, open problems, latest visits, details, team, history),
@@ -80,6 +94,11 @@ desktop notifications and, for founders, shows the Telegram set-up (chat id find
 A secret account above Founder, set up on the hub's side with `SUPERUSER_EMAIL` and `SUPERUSER_PASSWORD`
 (see the `nextup-hub-api` README). Sign in with it here like any account; it does not appear in **People**.
 
+It also gets **Bulk import**: pick what you are adding (people, clients, projects, robots, equipment, past
+problems), download the CSV template, fill it in Excel or Google Sheets, save as CSV, upload it (or paste
+the rows), press **Check every row**, then **Import**. Rows with a problem can be downloaded to fix and
+import again. New people's temporary passwords are shown once and can be downloaded as CSV.
+
 ## What each role sees
 
 The menu only shows what your role allows; the hub checks the same rules on every request
@@ -89,7 +108,10 @@ whoever is signed in.
 ## Files
 
 - `src/api.js`: talks to the hub (sign-in token, server address)
+- `src/native.js`, `android/`, `ANDROID.md`: the Android app
 - `src/App.jsx`: menu and pages; `src/Login.jsx`: sign-in, setup, change password
-- `src/pages/`: one file per page (`Projects.jsx` for projects, problems, site visits and search)
+- `src/pages/`: one file per page (`Projects.jsx` for projects, problems, site visits and search,
+  `Clients.jsx`, `Import.jsx` for the bulk import)
+- `src/records.jsx`: error codes, "seen before", equipment kinds, robot software forms
 - `src/ui.jsx`: icons, avatars, dates (always in the company's time zone)
-- `src/styles.css`, `src/app.css`: same fonts and colours as the website, light and dark
+- `src/styles.css`, `src/app.css`: same fonts and logo blue as the website, softer contrast, light and dark

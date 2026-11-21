@@ -5,6 +5,8 @@ import Login, { ChangePassword } from './Login'
 import Home from './pages/Home'
 import Production from './pages/Production'
 import Projects from './pages/Projects'
+import Clients from './pages/Clients'
+import Import from './pages/Import'
 import Bugs from './pages/Bugs'
 import Enquiries from './pages/Enquiries'
 import Attendance from './pages/Attendance'
@@ -12,6 +14,8 @@ import Leave from './pages/Leave'
 import Calendar from './pages/Calendar'
 import People from './pages/People'
 import Settings from './pages/Settings'
+import { Boot, Drawer, TabBar, TopBar, tabsFor } from './MobileNav'
+import { startupKeys, rememberKeys } from './prefetch'
 
 function useTheme() {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light')
@@ -25,7 +29,7 @@ function useTheme() {
 }
 
 // The page lives in the address (#/production?id=…) so a reload or a shared link opens the same thing.
-const SECTIONS = ['home', 'projects', 'production', 'bugs', 'enquiries', 'attendance', 'leave', 'calendar', 'people', 'settings']
+const SECTIONS = ['home', 'projects', 'clients', 'production', 'bugs', 'enquiries', 'attendance', 'leave', 'calendar', 'people', 'settings', 'import']
 function readHash() {
   const [path, query = ''] = window.location.hash.replace(/^#\/?/, '').split('?')
   return { view: SECTIONS.includes(path) ? path : 'home', params: Object.fromEntries(new URLSearchParams(query)) }
@@ -52,6 +56,52 @@ export default function App() {
   const token = session?.token
   const client = useMemo(() => (hub && token ? createClient({ hub, token }) : null), [hub, token])
   const perms = useMemo(() => new Set(session?.permissions || []), [session])
+
+  // A page shown from memory that turned out to have changed on the hub: draw it again.
+  useEffect(() => {
+    if (!client) return undefined
+    let t = null
+    const off = client.onChange(() => { clearTimeout(t); t = setTimeout(() => setVersion((v) => v + 1), 120) })
+    return () => { off(); clearTimeout(t) }
+  }, [client])
+
+  // One loading screen when the app opens or after sign-in: the main pages are loaded into memory,
+  // so moving between them afterwards is instant.
+  const [ready, setReady] = useState(null) // the client that finished loading
+  const [slow, setSlow] = useState(false)
+  const userId = session?.user?._id
+  const mustChange = session?.user?.mustChangePassword
+  useEffect(() => {
+    if (!client || mustChange) return undefined
+    let done = false
+    setSlow(false)
+    const slowT = setTimeout(() => setSlow(true), 6000)
+    const finish = () => { if (!done) { done = true; clearTimeout(slowT); setReady(client) } }
+    const giveUp = setTimeout(finish, 45000) // never stuck here: pages load themselves anyway
+    client.get('/auth/me').then((me) => {
+      const set = new Set(me.permissions || [])
+      return client.prefetch(startupKeys(me.user, (p) => set.has(p)))
+    }).catch(() => {}).finally(finish)
+    return () => { done = true; clearTimeout(slowT); clearTimeout(giveUp) }
+  }, [client, mustChange])
+  // Remember which pages this person opens, to have them ready next time too.
+  useEffect(() => {
+    if (!client || !userId) return undefined
+    const t = setTimeout(() => rememberKeys(userId, client.keys()), 3000)
+    return () => clearTimeout(t)
+  })
+  // The drawer is a step in the history, so the phone's back button closes it.
+  const [drawer, setDrawerState] = useState(false)
+  const setDrawer = useCallback((open) => {
+    if (open) { window.history.pushState({ drawer: 1 }, '', window.location.hash || '#/home'); setDrawerState(true) }
+    else if (window.history.state?.drawer) window.history.back()
+    else setDrawerState(false)
+  }, [])
+  useEffect(() => {
+    const onPop = () => setDrawerState(!!window.history.state?.drawer)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
   const can = useCallback((p) => perms.has(p), [perms])
 
   const signOut = useCallback((message) => {
@@ -108,6 +158,7 @@ export default function App() {
       onState: (s) => { if (s === 'signed-out') signOut('You were signed out. Please sign in again.'); else setLive(s) },
       onEvent: (name, data) => {
         if (name === 'change') {
+          client?.markStale()
           clearTimeout(timer)
           timer = setTimeout(() => { if (document.hidden) pending = true; else reload() }, 700)
         } else if (name === 'notify') {
@@ -165,6 +216,8 @@ export default function App() {
       onDone={(me) => { const n = { ...session, user: me.user, permissions: me.permissions }; saveSession(n); setSession(n); notify('Password changed. Welcome!') }} />
   }
 
+  if (ready !== client) return <Boot slow={slow} />
+
   const user = session.user
   const b = badges || {}
   const openBugs = b.bugs ? Object.values(b.bugs).reduce((n, a) => n + a.open, 0) : 0
@@ -172,6 +225,7 @@ export default function App() {
     { group: null, items: [{ key: 'home', label: 'Home', icon: <Icon.home /> }] },
     { group: 'Work', items: [
       can('projects.view') && { key: 'projects', label: 'Projects', icon: <Icon.folder />, count: b.projects?.openIssues || null },
+      can('clients.view') && { key: 'clients', label: 'Clients', icon: <Icon.building /> },
       can('production.view') && { key: 'production', label: 'Production', icon: <Icon.robot /> },
       can('bugs.view') && { key: 'bugs', label: 'Bug reports', icon: <Icon.bug />, count: openBugs || null },
       can('enquiries.view') && { key: 'enquiries', label: 'Website enquiries', icon: <Icon.inbox />, count: b.enquiries?.unread || null, hot: true },
@@ -182,16 +236,28 @@ export default function App() {
       { key: 'calendar', label: 'Calendar', icon: <Icon.calendar /> },
       { key: 'people', label: can('users.manage') ? 'People' : 'Directory', icon: <Icon.users /> },
     ] },
-  ].filter((g) => g.items.length)
+    can('data.import') && { group: 'Super user', items: [{ key: 'import', label: 'Bulk import', icon: <Icon.download /> }] },
+  ].filter((g) => g && g.items.length)
 
   const pageProps = { client, user, can, go, params: route.params, setParams: (p) => setParams(route.view, p), onError, notify, version, refreshBadges, badges }
-  const pages = { home: Home, projects: Projects, production: Production, bugs: Bugs, enquiries: Enquiries, attendance: Attendance, leave: Leave, calendar: Calendar, people: People, settings: Settings }
-  const allowed = { projects: can('projects.view'), production: can('production.view'), bugs: can('bugs.view'), enquiries: can('enquiries.view') }
+  const pages = { home: Home, projects: Projects, clients: Clients, import: Import, production: Production, bugs: Bugs, enquiries: Enquiries, attendance: Attendance, leave: Leave, calendar: Calendar, people: People, settings: Settings }
+  const allowed = { projects: can('projects.view'), clients: can('clients.view'), import: can('data.import'), production: can('production.view'), bugs: can('bugs.view'), enquiries: can('enquiries.view') }
   const view = allowed[route.view] === false ? 'home' : route.view
   const Page = pages[view] || Home
+  const items = nav.flatMap((g) => g.items)
+  const tabs = tabsFor(items)
+  const tabKeys = new Set(tabs.map((t) => t.key))
+  const moreBadge = items.filter((n) => !tabKeys.has(n.key) && n.hot).reduce((t, n) => t + (n.count || 0), 0)
+  // From the drawer: the page takes the drawer's place in the history (back then goes to the page before).
+  const goFromDrawer = (key) => {
+    if (window.history.state?.drawer) { window.history.replaceState(null, '', `#/${key}`); setRoute({ view: key, params: {} }); setDrawerState(false) }
+    else { setDrawerState(false); go(key) }
+  }
+  const title = view === 'settings' ? 'Settings' : (items.find((n) => n.key === view)?.label || 'Home')
 
   return (
     <div className="shell">
+      <TopBar title={title} live={live} user={user} onMenu={() => setDrawer(true)} />
       <aside className="side">
         <div className="brand"><Logo /><div><b>Nextup</b><span className="mono">Company hub</span></div>
           <span className={`live-dot ${live}`} title={live === 'live' ? 'Live: changes show by themselves' : 'Connecting to the hub for live updates…'} /></div>
@@ -214,7 +280,7 @@ export default function App() {
           </button>
           <div className="side-actions">
             <button onClick={toggleTheme} aria-label="Switch light or dark" title="Light / dark">{theme === 'dark' ? <Icon.sun /> : <Icon.moon />}</button>
-            <button onClick={() => { setVersion((v) => v + 1) }} aria-label="Refresh" title="Refresh"><Icon.refresh /></button>
+            <button onClick={() => { client.clear(); setVersion((v) => v + 1) }} aria-label="Refresh" title="Refresh"><Icon.refresh /></button>
             <button onClick={() => signOut()} aria-label="Sign out" title="Sign out"><Icon.out /></button>
           </div>
         </div>
@@ -223,6 +289,9 @@ export default function App() {
       <main className="main">
         <Page key={view} {...pageProps} />
       </main>
+      <TabBar tabs={tabs} view={view} go={go} onMore={() => setDrawer(true)} moreBadge={moreBadge} />
+      <Drawer open={drawer} onClose={() => setDrawer(false)} user={user} nav={nav} view={view} go={goFromDrawer} theme={theme} toggleTheme={toggleTheme}
+        live={live} onRefresh={() => { client.clear(); setVersion((v) => v + 1) }} onSignOut={() => signOut()} />
 
       {toast && <div className={`toast tone-${toast.tone}`} role="status">{toast.text}</div>}
       {alerts.length > 0 && (

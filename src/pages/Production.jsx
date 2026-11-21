@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Avatar, Icon, Modal, fmtDay, fmtDateTime, timeAgo, todayStr } from '../ui'
+import { PastRobotForm, SoftwareForm, SoftwareHistory } from '../records'
 
 const PHASES = [
   ['planned', 'Planned'], ['in_build', 'In build'], ['testing', 'Testing'], ['ready', 'Ready to ship'], ['dispatched', 'Dispatched'], ['installed', 'Installed'],
@@ -74,6 +75,7 @@ function UnitDetail({ id, client, user, can, go, people, onBack, onError, notify
   const [note, setNote] = useState('')
   const [adding, setAdding] = useState(null)
   const [blockNote, setBlockNote] = useState(null)
+  const [swForm, setSwForm] = useState(false)
   const manage = can('production.manage')
   useEffect(() => { client.get(`/units/${id}`).then((r) => setU(r.unit), onError) }, [client, id, onError, version])
 
@@ -160,6 +162,10 @@ function UnitDetail({ id, client, user, can, go, people, onBack, onError, notify
         </section>
 
         <div className="unit-side">
+          <section className="card">
+            <header className="card-h"><h3>Software</h3>{(manage || (can('projects.log') && u.projectId)) && <button className="link-btn" onClick={() => setSwForm(true)}><Icon.refresh />Update</button>}</header>
+            <SoftwareHistory unit={u} />
+          </section>
           {manage && (
             <section className="card">
               <header className="card-h"><h3>Dates and status</h3></header>
@@ -191,6 +197,7 @@ function UnitDetail({ id, client, user, can, go, people, onBack, onError, notify
         </div>
       </div>
 
+      {swForm && <SoftwareForm client={client} unit={u} onError={onError} onClose={() => setSwForm(false)} onSaved={(nu, same) => { setSwForm(false); setU((x) => ({ ...nu, project: x?.project })); onChanged(); notify(same ? 'Already on that version' : `${nu.serial} is now on ${nu.software.version}`) }} />}
       {adding && (
         <Modal title="Add a stage" onClose={() => setAdding(null)}>
           <form className="form-grid" onSubmit={(e) => { e.preventDefault(); client.post(`/units/${id}/stages`, adding).then((r) => { setU((x) => ({ ...r.unit, project: x?.project })); setAdding(null); onChanged() }, onError) }}>
@@ -223,6 +230,7 @@ export default function Production({ client, user, can, params, setParams, go, o
   const [templates, setTemplates] = useState(null)
   const [people, setPeople] = useState([])
   const [adding, setAdding] = useState(false)
+  const [past, setPast] = useState(false)
   const [q, setQ] = useState(params.q || '')
   const viewMode = params.view === 'list' ? 'list' : 'board'
   const mine = params.mine === 'true'
@@ -239,7 +247,7 @@ export default function Production({ client, user, can, params, setParams, go, o
   const shown = useMemo(() => (units || []).filter((u) => {
     if (params.model && u.model !== params.model) return false
     if (mine && !u.stages.some((s) => s.assigneeId === user._id && s.state !== 'done' && s.state !== 'skipped')) return false
-    if (q) { const t = q.toLowerCase(); if (![u.serial, u.model, u.customer?.company, u.customer?.city, u.enquiryRef].some((x) => String(x || '').toLowerCase().includes(t))) return false }
+    if (q) { const t = q.toLowerCase(); if (![u.serial, u.model, u.customer?.company, u.customer?.city, u.enquiryRef, u.software?.version].some((x) => String(x || '').toLowerCase().includes(t))) return false }
     return true
   }), [units, params.model, mine, q, user._id])
 
@@ -253,7 +261,7 @@ export default function Production({ client, user, can, params, setParams, go, o
     <div className="page">
       <header className="page-h">
         <div><span className="mono muted">Production</span><h1>{s ? <>{s.inProgress} robots <span className="muted">in the build.</span></> : 'Production'}</h1></div>
-        {can('production.manage') && <button className="btn primary" onClick={() => setAdding(true)}><Icon.plus />Add a robot</button>}
+        {can('production.manage') && <div className="toolbar"><button className="btn" onClick={() => setPast(true)}>Add one built before the hub</button><button className="btn primary" onClick={() => setAdding(true)}><Icon.plus />Add a robot</button></div>}
       </header>
 
       {s && (
@@ -295,7 +303,7 @@ export default function Production({ client, user, can, params, setParams, go, o
       ) : (
         <section className="card flush">
           <table className="tbl units-tbl">
-            <thead><tr><th>Serial</th><th>Model</th><th>Customer</th><th>Stages</th><th>Now</th><th>Phase</th><th>Target</th></tr></thead>
+            <thead><tr><th>Serial</th><th>Model</th><th>Customer</th><th>Stages</th><th>Now</th><th>Phase</th><th>Software</th><th>Target</th></tr></thead>
             <tbody>
               {shown.filter((u) => !params.phase || u.phase === params.phase).map((u) => (
                 <tr key={u._id} className="click" onClick={() => set({ id: u._id })}>
@@ -305,6 +313,7 @@ export default function Production({ client, user, can, params, setParams, go, o
                   <td><StageStrip stages={u.stages} /><small className="muted mono"> {u.progress.done}/{u.progress.total}</small></td>
                   <td>{u.onHold ? 'On hold' : u.progress.current ? <><i className={`stage-dot st-${u.progress.current.state}`} /> {u.progress.current.label}</> : 'Done'}</td>
                   <td><span className={`phase ph-${u.phase}`}>{PHASE_LABEL[u.phase]}</span></td>
+                  <td>{u.software?.version ? <span className="tag mono sw-tag">v{u.software.version}</span> : <span className="dim">–</span>}</td>
                   <td><Due u={u} /></td>
                 </tr>
               ))}
@@ -313,6 +322,7 @@ export default function Production({ client, user, can, params, setParams, go, o
         </section>
       )}
       {adding && <NewUnit client={client} templates={templates} onError={onError} onClose={() => setAdding(false)} onDone={(u) => { setAdding(false); notify(`${u.serial} added`); load(); set({ id: u._id }) }} />}
+      {past && <PastRobotForm client={client} onError={onError} onClose={() => setPast(false)} onSaved={(u) => { setPast(false); notify(`${u.serial} added`); load(); set({ id: u._id }) }} />}
       {go && null}
     </div>
   )
