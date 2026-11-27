@@ -83,6 +83,20 @@ is `nextup-demo`:
   was solved. **Log a problem** for anything found between visits; **Write the solution** when it is fixed.
 - Leads and founders create projects, change the team and put robots from the build list on a project.
 
+## Assets: a tag on every part (1.11)
+
+Needs `nextup-hub-api` 1.11.0. Each project has an **Assets** tab: add the project's components (a panel,
+the robot arm, the computer), then press **+ Part** on a component to take parts from the store (the stock
+from the inventory app). Each part gets its own tag (`NX-000123-K`), or one tag for a lot of nuts or bolts.
+Components can hold components (robot arm › joint J1 › motor, bolts). From the tab: **Bill of materials**
+(Excel) and **Labels** (A4 sheet of QR labels to print and stick on).
+
+**Assets** in the menu finds anything by its tag: type it, in any spelling, or scan a printed label and
+press Enter. An asset's page shows where it is (project › panel › …), what is inside it and everything
+that happened to it, and lets you edit, move (an assembly takes its parts along), return to the store
+(the number goes back into the stock) or mark it faulty. Founders, leads and employees can do this;
+deleting a tag made by mistake is for founders.
+
 ## Live updates and alerts
 
 Pages update by themselves when anyone changes something (the dot next to the logo is green while connected).

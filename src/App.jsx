@@ -5,6 +5,8 @@ import Login, { ChangePassword } from './Login'
 import Home from './pages/Home'
 import Production from './pages/Production'
 import Projects from './pages/Projects'
+import Assets from './pages/Assets'
+import { AIcon } from './assets'
 import Clients from './pages/Clients'
 import Import from './pages/Import'
 import Bugs from './pages/Bugs'
@@ -226,6 +228,7 @@ export default function App() {
     { group: 'Work', items: [
       can('projects.view') && { key: 'projects', label: 'Projects', icon: <Icon.folder />, count: b.projects?.openIssues || null },
       can('clients.view') && { key: 'clients', label: 'Clients', icon: <Icon.building /> },
+      can('assets.view') && { key: 'assets', label: 'Assets', icon: <AIcon.tag /> },
       can('production.view') && { key: 'production', label: 'Production', icon: <Icon.robot /> },
       can('bugs.view') && { key: 'bugs', label: 'Bug reports', icon: <Icon.bug />, count: openBugs || null },
       can('enquiries.view') && { key: 'enquiries', label: 'Website enquiries', icon: <Icon.inbox />, count: b.enquiries?.unread || null, hot: true },
@@ -240,8 +243,8 @@ export default function App() {
   ].filter((g) => g && g.items.length)
 
   const pageProps = { client, user, can, go, params: route.params, setParams: (p) => setParams(route.view, p), onError, notify, version, refreshBadges, badges }
-  const pages = { home: Home, projects: Projects, clients: Clients, import: Import, production: Production, bugs: Bugs, enquiries: Enquiries, attendance: Attendance, leave: Leave, calendar: Calendar, people: People, settings: Settings }
-  const allowed = { projects: can('projects.view'), clients: can('clients.view'), import: can('data.import'), production: can('production.view'), bugs: can('bugs.view'), enquiries: can('enquiries.view') }
+  const pages = { home: Home, projects: Projects, assets: Assets, clients: Clients, import: Import, production: Production, bugs: Bugs, enquiries: Enquiries, attendance: Attendance, leave: Leave, calendar: Calendar, people: People, settings: Settings }
+  const allowed = { projects: can('projects.view'), assets: can('assets.view'), clients: can('clients.view'), import: can('data.import'), production: can('production.view'), bugs: can('bugs.view'), enquiries: can('enquiries.view') }
   const view = allowed[route.view] === false ? 'home' : route.view
   const Page = pages[view] || Home
   const items = nav.flatMap((g) => g.items)

@@ -1,3 +1,4 @@
+import { ProjectAssets } from '../assets'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Avatar, Icon, Modal, fmtDay, fmtDateTime, plural, timeAgo, todayStr } from '../ui'
 import { CodeChips, CodeSuggest, EQUIP, EQUIP_SHORT, EQUIP_ST, Marked, PastRobotForm, SeenBefore, SoftwareForm, codesIn, holds, normWord, splitCodes, wordPattern } from '../records'
@@ -411,14 +412,14 @@ function ProjectPage({ id, client, user, can, params, setParams, go, people, onE
 
       <div className="toolbar between proj-bar">
         <div className="subtabs inline" role="tablist">
-          {[['overview', 'Overview'], ['problems', `Problems${issues.length ? ` · ${issues.length}` : ''}`], ['visits', `Site visits${visits.length ? ` · ${visits.length}` : ''}`], ['notes', `Notes${notes.length ? ` · ${notes.length}` : ''}`]].map(([k, l]) => (
+          {[['overview', 'Overview'], ...(can('assets.view') ? [['assets', 'Assets']] : []), ['problems', `Problems${issues.length ? ` · ${issues.length}` : ''}`], ['visits', `Site visits${visits.length ? ` · ${visits.length}` : ''}`], ['notes', `Notes${notes.length ? ` · ${notes.length}` : ''}`]].map(([k, l]) => (
             <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
         <div className="toolbar">
-          {tab !== 'overview' && <div className="search small"><Icon.search /><input value={pq} onChange={(e) => setPq(e.target.value)} placeholder="Search this project" aria-label="Search this project" /></div>}
-          {can('projects.log') && <button className="btn sm" onClick={() => setForm({ type: 'issue' })}><Icon.wrench />Log a problem</button>}
-          {can('projects.log') && <button className="btn primary sm" onClick={() => setForm({ type: 'visit' })}><Icon.pin />Log a site visit</button>}
+          {tab !== 'overview' && tab !== 'assets' && <div className="search small"><Icon.search /><input value={pq} onChange={(e) => setPq(e.target.value)} placeholder="Search this project" aria-label="Search this project" /></div>}
+          {tab !== 'assets' && can('projects.log') && <button className="btn sm" onClick={() => setForm({ type: 'issue' })}><Icon.wrench />Log a problem</button>}
+          {tab !== 'assets' && can('projects.log') && <button className="btn primary sm" onClick={() => setForm({ type: 'visit' })}><Icon.pin />Log a site visit</button>}
         </div>
       </div>
 
@@ -533,6 +534,8 @@ function ProjectPage({ id, client, user, can, params, setParams, go, people, onE
           </div>
         </div>
       )}
+
+      {tab === 'assets' && <ProjectAssets client={client} project={p} can={can} go={go} onError={onError} notify={notify} version={version} />}
 
       {tab === 'problems' && (
         <section className="prob-list">
