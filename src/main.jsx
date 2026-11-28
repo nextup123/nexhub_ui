@@ -4,6 +4,7 @@ import App from './App.jsx'
 import { installAppBridge } from './native'
 import './styles.css'
 import './app.css'
+import './mobile.css'
 
 installAppBridge()
 

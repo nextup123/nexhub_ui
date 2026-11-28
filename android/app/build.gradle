@@ -17,8 +17,8 @@ android {
         minSdk 24
         targetSdk 34
         // Raise both for every new APK you hand out (versionCode must go up: 2, 3, 4…).
-        versionCode 2
-        versionName '1.1.0'
+        versionCode 3
+        versionName '1.2.0'
     }
 
     signingConfigs {

@@ -17,7 +17,7 @@ import Calendar from './pages/Calendar'
 import People from './pages/People'
 import Settings from './pages/Settings'
 import { Boot, Drawer, TabBar, TopBar, tabsFor } from './MobileNav'
-import { startupKeys, rememberKeys } from './prefetch'
+import { prefetchAll, rememberKeys } from './prefetch'
 
 function useTheme() {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light')
@@ -31,7 +31,7 @@ function useTheme() {
 }
 
 // The page lives in the address (#/production?id=…) so a reload or a shared link opens the same thing.
-const SECTIONS = ['home', 'projects', 'clients', 'production', 'bugs', 'enquiries', 'attendance', 'leave', 'calendar', 'people', 'settings', 'import']
+const SECTIONS = ['home', 'projects', 'assets', 'clients', 'production', 'bugs', 'enquiries', 'attendance', 'leave', 'calendar', 'people', 'settings', 'import']
 function readHash() {
   const [path, query = ''] = window.location.hash.replace(/^#\/?/, '').split('?')
   return { view: SECTIONS.includes(path) ? path : 'home', params: Object.fromEntries(new URLSearchParams(query)) }
@@ -71,18 +71,20 @@ export default function App() {
   // so moving between them afterwards is instant.
   const [ready, setReady] = useState(null) // the client that finished loading
   const [slow, setSlow] = useState(false)
+  const [progress, setProgress] = useState(0)
   const userId = session?.user?._id
   const mustChange = session?.user?.mustChangePassword
   useEffect(() => {
     if (!client || mustChange) return undefined
     let done = false
     setSlow(false)
+    setProgress(0)
     const slowT = setTimeout(() => setSlow(true), 6000)
     const finish = () => { if (!done) { done = true; clearTimeout(slowT); setReady(client) } }
     const giveUp = setTimeout(finish, 45000) // never stuck here: pages load themselves anyway
     client.get('/auth/me').then((me) => {
       const set = new Set(me.permissions || [])
-      return client.prefetch(startupKeys(me.user, (p) => set.has(p)))
+      return prefetchAll(client, me.user, (p) => set.has(p), (f) => setProgress(f))
     }).catch(() => {}).finally(finish)
     return () => { done = true; clearTimeout(slowT); clearTimeout(giveUp) }
   }, [client, mustChange])
@@ -218,7 +220,7 @@ export default function App() {
       onDone={(me) => { const n = { ...session, user: me.user, permissions: me.permissions }; saveSession(n); setSession(n); notify('Password changed. Welcome!') }} />
   }
 
-  if (ready !== client) return <Boot slow={slow} />
+  if (ready !== client) return <Boot slow={slow} progress={progress} />
 
   const user = session.user
   const b = badges || {}

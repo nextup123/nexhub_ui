@@ -1,0 +1,113 @@
+/* ---- Phone look (the Android app, or any screen narrower than 760 px) ----
+   Calmer and friendlier than the desktop: normal sentence-case labels instead of spaced capitals,
+   smaller headlines, softer cards, chip rows that scroll sideways instead of stacking, and light
+   animations (only opacity and transform, so they stay smooth on cheap phones). The desktop is unchanged. */
+
+@media (max-width: 760px) {
+  :root { --radius: 20px; }
+
+  /* Labels: plain words, not a terminal */
+  .mono, .tbl th, .prob-dl dt, .st-h, .m-label, .ag-date small, .mini-date small, .eq-kind {
+    font-family: var(--text); text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500;
+  }
+  .brand .mono { font-size: 12px; }
+  .role, .sev, .prio { font-family: var(--text); text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; height: 22px; padding: 0 9px; border-radius: 999px; }
+  code, .tag, kbd { font-size: 12px; }
+
+  /* Headlines: the top bar already names the page, so the small line above it goes */
+  .page-h { padding-bottom: 2px; gap: 12px; align-items: flex-start; }
+  .page-h > div > .mono:first-child, .page-h > .mono:first-child { display: none; }
+  .page-h h1 { font-size: 25px; line-height: 1.2; letter-spacing: -0.02em; margin-top: 0; font-weight: 650; }
+  .page-h .who h1 { font-size: 25px; }
+  .page-h .btn { height: 42px; }
+  h2 { letter-spacing: -0.015em; }
+  .card-h h3 { font-size: 17px; }
+
+  /* Cards: rounder, no hard frames, a soft lift */
+  .card, .kpis, .tiles, .st-card {
+    border-color: transparent; border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(20, 30, 50, 0.04), 0 8px 24px -14px rgba(20, 30, 50, 0.18);
+  }
+  [data-theme='dark'] .card, [data-theme='dark'] .kpis, [data-theme='dark'] .tiles, [data-theme='dark'] .st-card { border-color: var(--line); box-shadow: none; }
+  .card { padding: 18px; }
+  .kpis { background: var(--line); gap: 1px; }
+  .kpi, .tile { padding: 16px 16px 18px; gap: 4px; }
+  .kpi b, .tile b { font-size: 30px; margin-top: 4px; letter-spacing: -0.03em; }
+  .kpi small, .tile small { font-size: 12.5px; line-height: 1.4; }
+
+  /* Buttons and fields: bigger, easier to tap */
+  .btn { height: 44px; padding: 0 18px; font-size: 14.5px; }
+  .btn.sm { height: 36px; }
+  .search { height: 46px; border-radius: 14px; background: var(--surface); border-color: transparent; box-shadow: 0 0 0 1px var(--line-2); }
+  input:not([type=checkbox]):not([type=radio]), select, textarea { font-size: 16px; } /* no zoom-in on focus */
+
+  /* Rows of chips scroll sideways instead of piling up */
+  .page :is(div, nav, section):has(> .chip ~ .chip ~ .chip), .page .seg-ctl {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    margin-left: -16px; margin-right: -16px; padding: 2px 16px; scroll-padding: 16px;
+  }
+  .page :is(div, nav, section):has(> .chip ~ .chip ~ .chip)::-webkit-scrollbar, .page .seg-ctl::-webkit-scrollbar { display: none; }
+  .modal :is(div, nav, section):has(> .chip ~ .chip ~ .chip) { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .chip, .seg-ctl button { flex: none; height: 36px; border-radius: 999px; }
+  .chip.on, .seg-ctl button.on { box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--accent) 50%, transparent); }
+
+  /* Dialogs come up from the bottom, like a phone sheet */
+  .modal-back { align-items: flex-end !important; padding: 0 !important; }
+  .modal { width: 100%; max-height: 92vh; border-radius: 24px 24px 0 0; padding: 10px 18px calc(22px + env(safe-area-inset-bottom)); animation: sheet 0.38s var(--ease); }
+  .modal::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--line-2); margin: 0 auto 12px; }
+
+  /* Sign-in: a friendly header instead of the dark poster */
+  .login-art { min-height: 0; padding: 36px 22px 30px; background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 16%, var(--bg)), var(--bg) 75%); color: var(--ink); }
+  .login-art .grid-lines { display: none; }
+  .login-art h1 { font-size: 30px; line-height: 1.12; }
+  .login-art p { color: var(--ink-2); font-size: 14.5px; }
+  .login-art .mono { color: var(--accent); }
+  .login-card { padding: 8px 22px 32px; }
+
+  /* Loading text becomes a soft pulse */
+  .loading { animation: breathe 1.4s ease-in-out infinite; }
+
+  /* ---- Motion ---- */
+  .page { animation: page-in 0.36s var(--ease) backwards; }
+  .page > * { animation: rise 0.45s var(--ease) backwards; }
+  .page > :nth-child(2) { animation-delay: 0.04s; }
+  .page > :nth-child(3) { animation-delay: 0.08s; }
+  .page > :nth-child(4) { animation-delay: 0.12s; }
+  .page > :nth-child(5) { animation-delay: 0.16s; }
+  .page > :nth-child(n+6) { animation-delay: 0.2s; }
+  .btn, .chip, .card[role=button], button.card, .tile, .seg-ctl button, .m-group button { transition: transform 0.18s var(--ease), background 0.2s, box-shadow 0.2s; }
+  .btn:active, .chip:active, .tile:active, button.card:active, .seg-ctl button:active { transform: scale(0.97); }
+  .m-tabs button.on .m-tab-ic svg { animation: pop-ic 0.42s var(--ease); }
+  .m-tab-ic em { animation: badge 0.4s var(--ease) backwards; }
+  .toast { animation: toast-in 0.4s var(--ease); }
+  .m-panel .m-group { animation: rise 0.4s var(--ease) backwards; }
+  .m-drawer:not(.open) .m-panel .m-group { animation: none; }
+}
+
+@keyframes page-in { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes sheet { from { transform: translateY(40px); opacity: 0; } }
+@keyframes pop-ic { 0% { transform: scale(0.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes badge { from { transform: scale(0); } }
+@keyframes breathe { 50% { opacity: 0.45; } }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 14px) scale(0.96); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .page, .page > *, .modal, .m-panel, .m-scrim, .m-tab-ic svg, .m-tab-ic em, .toast, .loading, .m-group { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 760px) {
+  .modal-back { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(12, 18, 28, 0.42); }
+}
+
+@media (max-width: 760px) {
+  .as-chips { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .as-chips::-webkit-scrollbar { display: none; }
+  .as-chips > button { flex: none; }
+}
+
+@media (max-width: 760px) {
+  .kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .tile:hover, .tile:focus { background: var(--surface); }
+  .tile:active { background: var(--bg-2); }
+}

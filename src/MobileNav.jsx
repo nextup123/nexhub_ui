@@ -9,7 +9,7 @@ const menuIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="non
 const moreIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="19" cy="12" r="1.9" /></svg>
 
 // The pages that earn a tab, best first; the first four this person may open are shown.
-const TAB_ORDER = ['home', 'projects', 'production', 'enquiries', 'attendance', 'leave', 'calendar']
+const TAB_ORDER = ['home', 'projects', 'assets', 'production', 'enquiries', 'attendance', 'leave', 'calendar']
 const SHORT = { enquiries: 'Enquiries', 'Website enquiries': 'Enquiries', 'Bug reports': 'Bugs' }
 
 export function tabsFor(items) {
@@ -104,15 +104,23 @@ export function Drawer({ open, onClose, user, nav, view, go, theme, toggleTheme,
   )
 }
 
-/** One loading screen when the app opens or after sign-in, while the main pages load. */
-export function Boot({ slow }) {
+/** One loading screen when the app opens or after sign-in, while everything loads. */
+export function Boot({ slow, progress = 0 }) {
+  const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100)
+  const step = pct < 15 ? 'Saying hello to the hub…' : pct < 55 ? 'Loading your pages…' : pct < 95 ? 'Loading projects, clients and robots…' : 'Almost there…'
   return (
     <div className="boot" role="status" aria-live="polite">
       <div className="boot-in">
-        <div className="boot-logo"><Logo /></div>
-        <div className="spinner" />
-        <b>Loading your hub</b>
-        <small className="muted">{slow ? 'The hub is waking up. This can take up to a minute the first time.' : 'Getting everything ready…'}</small>
+        <div className="boot-ring">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="28" className="boot-track" />
+            <circle cx="32" cy="32" r="28" className="boot-arc" style={{ strokeDashoffset: 176 - 176 * (pct / 100) }} />
+          </svg>
+          <span className="boot-logo"><Logo /></span>
+        </div>
+        <b>{slow && pct < 15 ? 'Waking up the hub' : 'Getting things ready'}</b>
+        <small className="muted">{slow && pct < 15 ? 'If nobody used it for a while this takes up to a minute. Hang on.' : step}</small>
+        <div className="boot-bar"><i style={{ transform: `scaleX(${Math.max(0.04, pct / 100)})` }} /></div>
       </div>
     </div>
   )

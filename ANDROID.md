@@ -56,8 +56,11 @@ call, and sign-in is rate limited. Don't put passwords or keys in `.env.mobile`.
 - Everything in the dashboard, laid out for a phone: a tab bar at the bottom for the main pages, and a
   menu (☰, or **More**) with your profile, the other pages, dark mode, refresh and sign out. The back
   button closes the menu or goes back a page.
-- One loading screen when the app opens or after sign-in; after that pages open instantly from memory
-  and refresh themselves in the background when something changes on the hub.
+- One loading screen when the app opens or after sign-in that loads everything at once (main pages,
+  then every project, client, robot and asset tree, with a progress ring); after that pages open
+  instantly and refresh themselves in the background when something changes on the hub.
+- A calmer phone look (`src/mobile.css`): plain labels, rounder cards, sideways chip rows, dialogs
+  that slide up from the bottom and light animations. The desktop is unchanged.
 - Phone numbers, email, WhatsApp and websites open in the phone's own apps.
 - CSV exports and templates save to **Downloads** (Android 10+) or open the share sheet (older).
 - Bulk import can pick a CSV file from the phone.

@@ -129,3 +129,8 @@ whoever is signed in.
 - `src/records.jsx`: error codes, "seen before", equipment kinds, robot software forms
 - `src/ui.jsx`: icons, avatars, dates (always in the company's time zone)
 - `src/styles.css`, `src/app.css`: same fonts and logo blue as the website, softer contrast, light and dark
+
+### Assets page (1.12)
+The Assets page opens on the **Store**: every inventory item, from every group, with how many are in the store and how many are out in projects.
+Tick the items you need and press **Assign to project**. Pick the project (and optionally a component, or a new one), set how many of each, and assign.
+A project's Assets tab has the same **Assign from store** button. **Find a tag** opens any tag, typed or scanned.

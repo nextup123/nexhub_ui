@@ -98,13 +98,14 @@ export function ProjectAssets({ client, project, can, go, onError, notify, versi
           {t.tags > 0 && <div className="search small"><Icon.search /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a tag, part or serial" aria-label="Find in this project" /></div>}
           {t.tags > 0 && <button className="btn sm" onClick={bom}><Icon.download />Bill of materials</button>}
           {t.tags > 0 && <button className="btn sm" onClick={labels}><AIcon.print />Labels</button>}
-          {manage && <button className="btn primary sm" onClick={() => setForm({ type: 'component' })}><Icon.plus />Add component</button>}
+          {manage && <button className="btn sm" onClick={() => setForm({ type: 'component' })}><Icon.plus />Add component</button>}
+          {manage && <button className="btn primary sm" onClick={() => setForm({ type: 'assign' })}><Icon.arrow />Assign from store</button>}
         </div>
       </header>
       {!roots.length ? (
         <div className="a-empty">
           <div className="a-empty-art" aria-hidden="true"><span><AIcon.assembly /></span><i /><span><AIcon.unit /></span><i /><span><AIcon.lot /></span></div>
-          <p><b>Start with the big pieces.</b> Add the project's components (a panel, the robot arm, the computer), then add parts into each one from the store. Every part gets its own tag, down to a bag of bolts.</p>
+          <p><b>Assign what this project uses from the store</b> (tick many at once), or start with its components (a panel, the robot arm, the computer) and fill each one. Every part gets its own tag, down to a bag of bolts.</p>
           {manage && <div className="a-quick">{['Panel', 'Robot arm', 'Computer'].map((n) => <button key={n} className="btn sm" onClick={() => setForm({ type: 'component', preset: n })}><Icon.plus />{n}</button>)}</div>}
         </div>
       ) : (
@@ -113,7 +114,9 @@ export function ProjectAssets({ client, project, can, go, onError, notify, versi
           {match && !match.size && <p className="empty-s">Nothing in this project matches “{q}”.</p>}
         </div>
       )}
-      {form && <AddModal client={client} project={project} parent={form.parent} component={form.type === 'component'} preset={form.preset} onClose={() => setForm(null)} onError={onError}
+      {form?.type === 'assign' && <AssignModal client={client} project={project} onClose={() => setForm(null)} onError={onError}
+        onSaved={(r) => { setForm(null); notify(`${plural(r.pieces, 'piece')} moved from the store${r.parent ? ` into ${r.parent.name}` : ''}`); if (r.parent) setOpen((o) => new Set([...o, r.parent._id])); load() }} />}
+      {form && form.type !== 'assign' && <AddModal client={client} project={project} parent={form.parent} component={form.type === 'component'} preset={form.preset} onClose={() => setForm(null)} onError={onError}
         onSaved={(list) => { setForm(null); notify(list.length === 1 ? `${list[0].name}: tag ${list[0].tag}` : `${list.length} tags made: ${list[0].tag} to ${list.at(-1).tag}`); if (form.parent) setOpen((o) => new Set([...o, form.parent._id])); load() }} />}
     </section>
   )
@@ -390,5 +393,127 @@ export function AssetPage({ id, client, can, go, onError, notify, version, onBac
       {form === 'move' && <MoveModal client={client} asset={a} onClose={() => setForm(null)} onError={onError} onSaved={done((r) => (r.moved > 1 ? `Moved, with ${r.moved - 1} parts inside` : 'Moved'))} />}
       {form === 'return' && <ReturnModal client={client} asset={a} inside={inside} onClose={() => setForm(null)} onError={onError} onSaved={done((r) => `${plural(r.returned, 'tag')} back in the store`)} />}
     </div>
+  )
+}
+
+export const GROUPS = [['', 'All'], ['it', 'IT'], ['electrical', 'Electrical'], ['raw_material', 'Raw material'], ['mechanical', 'Mechanical'], ['machinery', 'Machinery']]
+const matches = (s, q) => { const w = q.trim().toLowerCase().split(/\s+/).filter(Boolean); return !w.length || w.every((x) => [s.ref, s.name, s.type, s.make, s.model, s.location].join(' ').toLowerCase().includes(x)) }
+
+/**
+ * Assign to a project: pick many store items at once (CPU, mouse, monitor, servo drives, bolts…), say how many of each,
+ * and they move from the store into the project in one go. Each gets its tag(s); the history on both sides says so.
+ * `selected` is a Map itemId → quantity from the page; `project` fixes the project (from a project's Assets tab).
+ */
+export function AssignModal({ client, selected, items: givenItems, project: fixedProject, onClose, onSaved, onError }) {
+  const [items, setItems] = useState(givenItems || null)
+  const [projects, setProjects] = useState(null)
+  const [pid, setPid] = useState(fixedProject?._id || '')
+  const [inside, setInside] = useState('')
+  const [asm, setAsm] = useState({ name: '', assemblyType: 'Computer' })
+  const [sel, setSel] = useState(() => new Map(selected || []))
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('')
+  const [onlyPicked, setOnlyPicked] = useState(!!(selected && selected.size))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  useEffect(() => { if (!givenItems) client.get('/inventory').then((r) => setItems(r.items), onError) }, [client, givenItems, onError])
+  useEffect(() => { client.get('/inventory/projects').then((r) => { setProjects(r.projects); if (!pid && r.projects.length === 1) setPid(r.projects[0]._id) }, onError) }, [client, onError]) // eslint-disable-line react-hooks/exhaustive-deps
+  const project = projects?.find((p) => p._id === pid) || fixedProject
+  const assemblies = projects?.find((p) => p._id === pid)?.assemblies || []
+  const byId = useMemo(() => new Map((items || []).map((i) => [i._id, i])), [items])
+  const shown = (items || []).filter((s) => (onlyPicked ? sel.has(s._id) : (!cat || s.category === cat) && matches(s, q)))
+  const toggle = (s) => setSel((m) => { const n = new Map(m); if (n.has(s._id)) n.delete(s._id); else n.set(s._id, '1'); return n })
+  const setQty = (id, v) => setSel((m) => new Map(m).set(id, v))
+  const lines = [...sel].map(([id, v]) => ({ item: byId.get(id), n: Number(v) })).filter((l) => l.item)
+  const bad = lines.filter((l) => !Number.isInteger(l.n) || l.n < 1 || l.n > l.item.quantity)
+  const pieces = lines.reduce((a, l) => a + (l.n > 0 ? l.n : 0), 0)
+  const newAsm = inside === 'new'
+  const where = !project ? '' : [project.ref, newAsm ? (asm.name || 'new component') : assemblies.find((a) => a._id === inside)?.name].filter(Boolean).join(' › ')
+  const ready = project && lines.length && !bad.length && (!newAsm || asm.name.trim())
+  const save = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setErr('')
+    try {
+      const r = await client.post('/assets/assign', {
+        projectId: pid,
+        parentId: inside && !newAsm ? inside : undefined,
+        assembly: newAsm ? asm : undefined,
+        items: lines.map((l) => ({ itemId: l.item._id, quantity: l.n })),
+      })
+      onSaved(r)
+    } catch (x) { if (x.status === 400 || x.status === 409) setErr(x.message); else onError(x) } finally { setBusy(false) }
+  }
+  return (
+    <Modal title="Assign to a project" onClose={onClose} wide>
+      <form onSubmit={save} className="as-form">
+        <div className="form-grid as-where">
+          <label><span className="mono">Project</span>
+            {fixedProject ? <input value={`${fixedProject.ref} · ${fixedProject.name}`} disabled /> : (
+              <select value={pid} onChange={(e) => { setPid(e.target.value); setInside('') }} required autoFocus>
+                <option value="">{projects ? 'Choose a project…' : 'Loading…'}</option>
+                {(projects || []).map((p) => <option key={p._id} value={p._id}>{p.ref} · {p.name}{p.clientName ? ` (${p.clientName})` : ''}</option>)}
+              </select>
+            )}
+          </label>
+          <label><span className="mono">Put it in</span>
+            <select value={inside} onChange={(e) => setInside(e.target.value)} disabled={!project}>
+              <option value="">The project itself</option>
+              {assemblies.map((a) => <option key={a._id} value={a._id}>{a.name} ({a.tag})</option>)}
+              <option value="new">A new component…</option>
+            </select>
+          </label>
+          {newAsm && (
+            <div className="as-new">
+              <select value={asm.assemblyType} onChange={(e) => setAsm((x) => ({ assemblyType: e.target.value, name: !x.name || ASSEMBLY_TYPES.includes(x.name) ? e.target.value : x.name }))} aria-label="Component type">{ASSEMBLY_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+              <input value={asm.name} onChange={(e) => setAsm({ ...asm, name: e.target.value })} placeholder="Name, e.g. Main panel" aria-label="Component name" required />
+            </div>
+          )}
+        </div>
+
+        <div className="as-pick">
+          <div className="as-tools">
+            <div className="search small"><Icon.search /><input value={q} onChange={(e) => { setQ(e.target.value); setOnlyPicked(false) }} placeholder="Search the store" aria-label="Search the store" /></div>
+            <div className="as-chips">
+              {GROUPS.map(([k, l]) => <button type="button" key={k} className={!onlyPicked && cat === k ? 'on' : ''} onClick={() => { setCat(k); setOnlyPicked(false) }}>{l}</button>)}
+              <button type="button" className={onlyPicked ? 'on' : ''} onClick={() => setOnlyPicked(true)} disabled={!sel.size}>Picked · {sel.size}</button>
+            </div>
+          </div>
+          <div className="as-list">
+            {!items ? <p className="loading">Loading the store…</p> : !shown.length ? <p className="empty-s">{onlyPicked ? 'Nothing picked yet.' : 'Nothing in the store matches.'}</p> : shown.map((s) => {
+              const on = sel.has(s._id)
+              const v = sel.get(s._id)
+              const over = on && Number(v) > s.quantity
+              return (
+                <div key={s._id} className={`as-row${on ? ' on' : ''}${!s.quantity ? ' none' : ''}`}>
+                  <label className="as-check">
+                    <input type="checkbox" checked={on} onChange={() => toggle(s)} disabled={!s.quantity && !on} />
+                    <span><b>{s.name}</b><small>{[s.ref, GROUP[s.category], [s.make, s.model].filter(Boolean).join(' ')].filter(Boolean).join(' · ')}</small></span>
+                  </label>
+                  <span className={`as-have${!s.quantity ? ' zero' : ''}`}>{s.quantity} {s.unit} in store</span>
+                  {on ? (
+                    <span className={`as-qty${over ? ' bad' : ''}`}>
+                      <button type="button" onClick={() => setQty(s._id, String(Math.max(1, (Number(v) || 1) - 1)))} aria-label="One less">−</button>
+                      <input type="number" min="1" max={s.quantity} value={v} onChange={(e) => setQty(s._id, e.target.value)} aria-label={`How many ${s.name}`} />
+                      <button type="button" onClick={() => setQty(s._id, String(Math.min(s.quantity, (Number(v) || 0) + 1)))} aria-label="One more">+</button>
+                    </span>
+                  ) : <span className="as-qty-ph" />}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {err && <p className="a-hint">{err}</p>}
+        <footer className="modal-actions as-foot">
+          <span className="grow muted small">
+            {!lines.length ? 'Tick the items this project uses.' : bad.length ? <span className="bad-text">{bad[0].item.name}: only {bad[0].item.quantity} in the store.</span>
+              : <>{plural(lines.length, 'item')}, {plural(pieces, 'piece')}{where ? <> → <b>{where}</b></> : ''}. Each gets its own tag (bolts and other lots get one tag each batch).</>}
+          </span>
+          <button type="button" className="btn sm" onClick={onClose}>Cancel</button>
+          <button className="btn primary sm" disabled={!ready || busy}>{busy ? 'Assigning…' : 'Assign'}</button>
+        </footer>
+      </form>
+    </Modal>
   )
 }
