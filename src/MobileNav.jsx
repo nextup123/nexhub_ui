@@ -68,7 +68,7 @@ export function Drawer({ open, onClose, user, nav, view, go, theme, toggleTheme,
           <span className="m-profile-t">
             <b>{user.name}</b>
             <small>{user.title || user.email}</small>
-            <span className="m-profile-tags"><RoleBadge role={user.role} />{user.team ? <span className="m-team">{user.team}</span> : null}</span>
+            <span className="m-profile-tags"><RoleBadge role={user.role} leadPowers={!!user.leadPowers} />{user.team ? <span className="m-team">{user.team}</span> : null}</span>
           </span>
           <Icon.right />
         </button>

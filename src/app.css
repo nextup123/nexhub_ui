@@ -50,6 +50,10 @@
 .role-hr { --role: var(--role-hr); }
 .role-lead { --role: var(--role-lead); }
 .role-employee { --role: var(--role-employee); }
+.role-pair { display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.lead-powers { display: grid; gap: 8px; background: color-mix(in srgb, var(--role-lead) 8%, var(--bg)); border: 1px solid color-mix(in srgb, var(--role-lead) 30%, transparent); padding: 12px 14px; border-radius: 12px; }
+.lead-powers p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+.lead-powers .lp-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
 /* tabs inside a page */
 .enq { display: flex; flex-direction: column; height: 100%; min-height: 0; }

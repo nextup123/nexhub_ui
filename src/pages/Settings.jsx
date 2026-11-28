@@ -63,6 +63,7 @@ function Alerts({ client, user, can, onError, notify }) {
 const WORDS = {
   'users.view': 'See the company directory',
   'users.manage': 'Add people, change roles and teams, reset passwords',
+  'users.grant_lead': 'Give an employee lead powers, or take them back',
   'users.hr_records': 'See HR records (joining date, employee id, emergency contact)',
   'attendance.self': 'Check in and out, see your own attendance',
   'attendance.team': 'See your team’s attendance',
@@ -78,6 +79,15 @@ const WORDS = {
   'projects.manage': 'Create projects, change their team, robots and status',
   'projects.log': 'Log problems, solutions, site visits and notes',
   'projects.delete': 'Delete projects',
+  'clients.view': 'See clients and their projects',
+  'clients.manage': 'Add and edit clients',
+  'clients.delete': 'Delete clients',
+  'assets.view': 'See tagged parts and the store',
+  'assets.manage': 'Tag parts, take them from stock, move and return them',
+  'assets.delete': 'Delete a tag made by mistake',
+  'inventory.view': 'See and export the inventory',
+  'inventory.manage': 'Add, edit and import inventory',
+  'inventory.delete': 'Delete inventory items',
   'production.view': 'See robots in the build',
   'production.manage': 'Add robots, change stages and dates, give stages to people',
   'production.update_assigned': 'Tick off build stages given to you',
@@ -111,7 +121,7 @@ export default function Settings({ client, user, can, onError, notify }) {
       <header className="page-h">
         <div className="who">
           <Avatar name={user.name} size={64} />
-          <div><span className="mono muted">Your account</span><h1>{user.name}</h1><p className="muted">{user.title || ''}{user.team ? ` · ${user.team}` : ''} · <RoleBadge role={user.role} /></p></div>
+          <div><span className="mono muted">Your account</span><h1>{user.name}</h1><p className="muted">{user.title || ''}{user.team ? ` · ${user.team}` : ''} · <RoleBadge role={user.role} leadPowers={!!user.leadPowers} /></p></div>
         </div>
       </header>
       <div className="two-col">
@@ -137,7 +147,7 @@ export default function Settings({ client, user, can, onError, notify }) {
       </div>
       <Alerts client={client} user={user} can={can} onError={onError} notify={notify} />
       <section className="card">
-        <header className="card-h"><h3>What your role can do</h3><RoleBadge role={user.role} /></header>
+        <header className="card-h"><h3>What your role can do</h3><RoleBadge role={user.role} leadPowers={!!user.leadPowers} /></header>
         <ul className="perm-list">
           {perms.map((k) => <li key={k} className={can(k) ? 'yes' : 'no'}>{can(k) ? <Icon.check /> : <Icon.close />}<span>{WORDS[k]}</span></li>)}
         </ul>

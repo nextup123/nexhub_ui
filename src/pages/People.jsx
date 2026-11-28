@@ -3,12 +3,12 @@ import { Avatar, Icon, Modal, RoleBadge, ROLE_LABEL, fmtDay, isTop, timeAgo } fr
 
 const ROLE_HELP = {
   founder: 'Everything, including deleting enquiries and robots',
-  hr: 'People, attendance, leave, holidays. No customer data, bugs or production',
+  hr: 'Everything a founder can do: people, attendance, leave, projects, deletes, and giving lead powers',
   lead: 'Runs a team: production, bug triage, website enquiries, the team’s leave',
   employee: 'Own attendance and leave, calendar, production stages given to them, bug reports',
 }
 
-function PersonForm({ client, me, person, teams, onClose, onSaved, onError }) {
+function PersonForm({ client, me, can, person, teams, onClose, onSaved, onError }) {
   const [f, setF] = useState(person
     ? { name: person.name, email: person.email, phone: person.phone, role: person.role, team: person.team, title: person.title, active: person.active, hr: { employeeId: '', joinedOn: '', emergencyContact: '', ...(person.hr || {}) } }
     : { name: '', email: '', phone: '', role: 'employee', team: '', title: '', active: true, hr: { employeeId: '', joinedOn: '', emergencyContact: '' } })
@@ -23,6 +23,14 @@ function PersonForm({ client, me, person, teams, onClose, onSaved, onError }) {
   }
   const reset = async () => {
     try { const r = await client.post(`/users/${person._id}/password`); setTemp({ name: person.name, email: person.email, password: r.temporaryPassword, reset: true }) } catch (err) { onError(err) }
+  }
+  const [busy, setBusy] = useState(false)
+  const setLeadPowers = async (grant) => {
+    setBusy(true)
+    try {
+      await client.post(`/users/${person._id}/lead-powers`, { grant })
+      onSaved(grant ? `${person.name} now has lead powers` : `Lead powers taken back from ${person.name}`)
+    } catch (err) { onError(err) } finally { setBusy(false) }
   }
   if (temp) {
     return (
@@ -46,6 +54,19 @@ function PersonForm({ client, me, person, teams, onClose, onSaved, onError }) {
         </label>
         <label><span className="mono">Team</span><input list="teams" value={f.team} onChange={(e) => setF({ ...f, team: e.target.value })} placeholder="Production, Software, Sales…" /><datalist id="teams">{teams.map((t) => <option key={t} value={t} />)}</datalist></label>
         <p className="span2 role-help"><RoleBadge role={f.role} /> {ROLE_HELP[f.role]}{f.role === 'lead' ? `. Leads look after everyone in the same team${f.team ? ` (${f.team})` : ''}.` : ''}</p>
+        {person && !self && person.role === 'employee' && f.role === 'employee' && can('users.grant_lead') && (
+          <div className="span2 lead-powers">
+            <div className="lp-row"><b>Lead powers</b><RoleBadge role="employee" leadPowers={!!person.leadPowers} /></div>
+            <p>{person.leadPowers
+              ? `${person.name.split(' ')[0]} can do everything a lead can: create and run projects, clients, production and assets, and look after the ${person.team || 'same'} team’s attendance and leave. Given by ${person.leadPowers.by || 'a founder'}${person.leadPowers.at ? ` on ${fmtDay(String(person.leadPowers.at).slice(0, 10), { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}.`
+              : `For someone who leads a team but stays an Employee. They get everything a lead can do (create projects, full access to assets and resources, their team’s attendance and leave) until you take it back.`}</p>
+            <div className="lp-row">
+              {person.leadPowers
+                ? <button type="button" className="btn sm" disabled={busy} onClick={() => setLeadPowers(false)}>Take back lead powers</button>
+                : <button type="button" className="btn primary sm" disabled={busy} onClick={() => setLeadPowers(true)}>Give lead powers</button>}
+            </div>
+          </div>
+        )}
         <label><span className="mono">Job title</span><input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
         <label><span className="mono">Phone</span><input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></label>
         <div className="span2 hr-block">
@@ -81,6 +102,7 @@ export default function People({ client, user, can, onError, notify, version }) 
   const shown = (list || []).filter((p) => (showOff || p.active) && (!q || [p.name, p.email, p.team, p.title, p.role].some((x) => String(x || '').toLowerCase().includes(q.toLowerCase()))))
   const byTeam = teams.map((t) => [t, shown.filter((p) => p.team === t)]).concat([['No team', shown.filter((p) => !p.team)]]).filter(([, l]) => l.length)
   const counts = Object.keys(ROLE_LABEL).map((r) => [r, (list || []).filter((p) => p.active && p.role === r).length])
+  const powered = (list || []).filter((p) => p.active && p.role === 'employee' && p.leadPowers).length
 
   return (
     <div className="page">
@@ -93,7 +115,7 @@ export default function People({ client, user, can, onError, notify, version }) 
           <div className="search small"><Icon.search /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, team, role…" aria-label="Search people" /></div>
           {manage && <button className={`chip${showOff ? ' on' : ''}`} onClick={() => setShowOff(!showOff)}>Show switched-off accounts</button>}
         </div>
-        <div className="role-counts">{counts.map(([r, n]) => <span key={r}><RoleBadge role={r} /> {n}</span>)}</div>
+        <div className="role-counts">{counts.map(([r, n]) => <span key={r}><RoleBadge role={r} /> {n}</span>)}{powered > 0 && <span><span className="role role-lead">+ Lead powers</span> {powered}</span>}</div>
       </div>
       {!list ? <div className="loading">Loading…</div> : byTeam.map(([team, people]) => (
         <section key={team} className="team-block">
@@ -105,7 +127,7 @@ export default function People({ client, user, can, onError, notify, version }) 
                 <div className="pc-main">
                   <b>{p.name}{p._id === user._id && <span className="muted"> (you)</span>}</b>
                   <small>{p.title || '–'}</small>
-                  <RoleBadge role={p.role} />
+                  <RoleBadge role={p.role} leadPowers={!!p.leadPowers} />
                 </div>
                 <div className="pc-contact">
                   <a href={`mailto:${p.email}`}><Icon.mail />{p.email}</a>
@@ -119,7 +141,7 @@ export default function People({ client, user, can, onError, notify, version }) 
           </div>
         </section>
       ))}
-      {form && <PersonForm client={client} me={user} person={form.person} teams={teams} onError={onError} onClose={() => setForm(null)} onSaved={(msg) => { setForm(null); notify(msg); load() }} />}
+      {form && <PersonForm client={client} me={user} can={can} person={form.person} teams={teams} onError={onError} onClose={() => setForm(null)} onSaved={(msg) => { setForm(null); notify(msg); load() }} />}
     </div>
   )
 }

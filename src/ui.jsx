@@ -90,9 +90,13 @@ export const Icon = {
 
 export const ROLE_LABEL = { founder: 'Founder', hr: 'HR', lead: 'Lead', employee: 'Employee' }
 // The super user is not in ROLE_LABEL on purpose: it must never appear in role pickers or counts.
-export const isTop = (u) => !!u && (u.role === 'founder' || u.role === 'superuser')
-export function RoleBadge({ role }) {
-  return <span className={`role role-${role}`}>{ROLE_LABEL[role] || (role === 'superuser' ? 'Super user' : role)}</span>
+// HR has every power a founder has (hub 1.13), so it counts as the top of the company too.
+export const isTop = (u) => !!u && (u.role === 'founder' || u.role === 'hr' || u.role === 'superuser')
+/** Role pill; an employee given lead powers gets a second green "+ Lead powers" pill. */
+export function RoleBadge({ role, leadPowers }) {
+  const main = <span className={`role role-${role}`}>{ROLE_LABEL[role] || (role === 'superuser' ? 'Super user' : role)}</span>
+  if (!leadPowers || role !== 'employee') return main
+  return <span className="role-pair">{main}<span className="role role-lead" title="Can do everything a lead can">+ Lead powers</span></span>
 }
 
 /** A dialog drawn in the page (never window.confirm/alert). */

@@ -134,3 +134,11 @@ whoever is signed in.
 The Assets page opens on the **Store**: every inventory item, from every group, with how many are in the store and how many are out in projects.
 Tick the items you need and press **Assign to project**. Pick the project (and optionally a component, or a new one), set how many of each, and assign.
 A project's Assets tab has the same **Assign from store** button. **Find a tag** opens any tag, typed or scanned.
+
+## Lead powers and HR (1.14, needs hub API 1.13)
+
+- **People › edit an employee › Give lead powers.** For someone who leads a team but stays an Employee: they get
+  everything a lead can do (create projects, clients, production, assets, their team's attendance and leave)
+  until you press **Take back lead powers**. They show a green **+ Lead powers** tag next to their role.
+  Only founders, HR and the super user see this button.
+- **HR now has every power a founder has** (projects, clients, production, enquiries, bugs, deletes, adding founders).

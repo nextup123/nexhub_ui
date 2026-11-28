@@ -281,7 +281,7 @@ export default function App() {
         <div className="side-foot">
           <button className={`me${view === 'settings' ? ' on' : ''}`} onClick={() => go('settings')} title="Your account">
             <Avatar name={user.name} size={32} />
-            <span><b>{user.name}</b><RoleBadge role={user.role} /></span>
+            <span><b>{user.name}</b><RoleBadge role={user.role} leadPowers={!!user.leadPowers} /></span>
           </button>
           <div className="side-actions">
             <button onClick={toggleTheme} aria-label="Switch light or dark" title="Light / dark">{theme === 'dark' ? <Icon.sun /> : <Icon.moon />}</button>
